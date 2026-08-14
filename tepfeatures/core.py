@@ -4,6 +4,7 @@ import mne
 
 from .config import DEFAULT_WINDOWS
 from .temporal import TemporalFeatures
+from .spatial import SpatialFeatures
 
 class TEPExtractor:
     """
@@ -32,7 +33,7 @@ class TEPExtractor:
         
         # Sub-modules
         self.temporal = TemporalFeatures(self)
-        self.spatial = None
+        self.spatial = SpatialFeatures(self)
         self.microstates = None
         
     def __getitem__(self, peak_name: str) -> List[float]:
