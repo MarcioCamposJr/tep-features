@@ -38,3 +38,4 @@ nav:
     - Temporal Features: api/temporal.md
     - Spatial Features: api/spatial.md
     - Microstate Features: api/microstates.md
+    - Spectral Features: api/spectral.md

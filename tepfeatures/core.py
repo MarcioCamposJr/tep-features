@@ -6,6 +6,7 @@ from .config import DEFAULT_WINDOWS
 from .temporal import TemporalFeatures
 from .spatial import SpatialFeatures
 from .microstates import MicrostateFeatures
+from .spectral import SpectralFeatures
 
 class TEPExtractor:
     """
@@ -36,6 +37,7 @@ class TEPExtractor:
         self.temporal = TemporalFeatures(self)
         self.spatial = SpatialFeatures(self)
         self.microstates = MicrostateFeatures(self)
+        self.spectral = SpectralFeatures(self)
         
     def __getitem__(self, peak_name: str) -> List[float]:
         """

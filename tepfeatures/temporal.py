@@ -133,3 +133,55 @@ class TemporalFeatures:
             })
             
         return pd.DataFrame(results)
+
+    def get_area(self, peak_name: str, channels: Optional[Union[str, List[str]]] = None, absolute: bool = False) -> pd.DataFrame:
+        """
+        Calculate the Area Under the Curve (AUC) for a specific temporal window.
+        
+        Uses the trapezoidal rule to integrate the signal over time.
+        
+        Parameters
+        ----------
+        peak_name : str
+            The name of the window/peak to analyze (e.g., 'N15', 'P30').
+        channels : str, list of str, or None, default None
+            The channel(s) to analyze. If None, all EEG channels are used.
+        absolute : bool, default False
+            If True, calculates the area of the absolute signal (rectified).
+            If False, calculates the net area (negative values subtract from the total).
+            
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing 'channel', 'window_name', and 'auc' (V*s).
+        """
+        window = self._extractor[peak_name]
+        evoked = self._extractor.evoked
+        
+        if channels is None:
+            picks = mne.pick_types(evoked.info, eeg=True)
+            ch_names = [evoked.ch_names[i] for i in picks]
+        else:
+            ch_names = [channels] if isinstance(channels, str) else channels
+            
+        evoked_cropped = evoked.copy().crop(tmin=window[0], tmax=window[1])
+        data = evoked_cropped.get_data(picks=ch_names)
+        times = evoked_cropped.times
+        
+        if absolute:
+            data = np.abs(data)
+            
+        results = []
+        for idx, ch_name in enumerate(ch_names):
+            ch_data = data[idx, :]
+            
+            # Trapezoidal integration
+            auc = np.trapezoid(y=ch_data, x=times)
+            
+            results.append({
+                'channel': ch_name,
+                'window_name': peak_name,
+                'auc': auc
+            })
+            
+        return pd.DataFrame(results)
