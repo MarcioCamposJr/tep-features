@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple, Union
 import mne
 
 from .config import DEFAULT_WINDOWS
+from .temporal import TemporalFeatures
 
 class TEPExtractor:
     """
@@ -29,8 +30,8 @@ class TEPExtractor:
         self.evoked = evoked
         self.windows: Dict[str, List[float]] = copy.deepcopy(DEFAULT_WINDOWS)
         
-        # Sub-modules will be instantiated here in later phases
-        self.temporal = None
+        # Sub-modules
+        self.temporal = TemporalFeatures(self)
         self.spatial = None
         self.microstates = None
         
