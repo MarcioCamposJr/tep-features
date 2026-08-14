@@ -19,23 +19,30 @@ class SpatialFeatures:
     def __init__(self, extractor: Any):
         self._extractor = extractor
 
-    def _calculate_field_power(self, data: np.ndarray) -> np.ndarray:
+    def _calculate_field_power(self, data: np.ndarray, method: str = 'std') -> np.ndarray:
         """
-        Helper method to calculate Mean Field Power (standard deviation across channels).
+        Helper method to calculate Mean Field Power.
         
         Parameters
         ----------
         data : np.ndarray
             Data array of shape (n_channels, n_times).
+        method : str, default 'std'
+            The method to calculate power. 'std' calculates spatial standard 
+            deviation (used for GFP). 'rms' calculates Root Mean Square 
+            (used for LMFP).
             
         Returns
         -------
         np.ndarray
             Field power time series of shape (n_times,).
         """
-        # Typically GFP is the standard deviation across channels at each time point.
-        # Alternatively, it could be the RMS. Using std is standard for EEG.
-        return np.std(data, axis=0)
+        if method == 'std':
+            return np.std(data, axis=0)
+        elif method == 'rms':
+            return np.sqrt(np.mean(data**2, axis=0))
+        else:
+            raise ValueError("Method must be 'std' or 'rms'.")
 
     def get_gfp(self) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -52,7 +59,7 @@ class SpatialFeatures:
         picks = mne.pick_types(evoked.info, eeg=True)
         data = evoked.get_data(picks=picks)
         
-        gfp = self._calculate_field_power(data)
+        gfp = self._calculate_field_power(data, method='std')
         return evoked.times, gfp
 
     def get_lmfp(self, channels: List[str]) -> Tuple[np.ndarray, np.ndarray]:
@@ -74,7 +81,7 @@ class SpatialFeatures:
         evoked = self._extractor.evoked
         data = evoked.get_data(picks=channels)
         
-        lmfp = self._calculate_field_power(data)
+        lmfp = self._calculate_field_power(data, method='rms')
         return evoked.times, lmfp
 
     def get_gfp_peak(self, peak_name: str) -> pd.DataFrame:
@@ -96,7 +103,7 @@ class SpatialFeatures:
         picks = mne.pick_types(evoked_cropped.info, eeg=True)
         data = evoked_cropped.get_data(picks=picks)
         
-        gfp = self._calculate_field_power(data)
+        gfp = self._calculate_field_power(data, method='std')
         times = evoked_cropped.times
         
         peak_idx = np.argmax(gfp)
