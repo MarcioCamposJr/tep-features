@@ -12,3 +12,9 @@ DEFAULT_WINDOWS = {
     "N100": [0.100, 0.160],
     "P200": [0.180, 0.280],
 }
+
+# Default frequency bands (in Hz) for spectral analysis
+DEFAULT_BANDS = {
+    "alpha": [8.0, 12.0],
+    "beta": [13.0, 30.0],
+}

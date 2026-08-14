@@ -2,7 +2,7 @@ import copy
 from typing import Dict, List, Tuple, Union
 import mne
 
-from .config import DEFAULT_WINDOWS
+from .config import DEFAULT_WINDOWS, DEFAULT_BANDS
 from .temporal import TemporalFeatures
 from .spatial import SpatialFeatures
 from .microstates import MicrostateFeatures
@@ -32,6 +32,7 @@ class TEPExtractor:
             
         self.evoked = evoked
         self.windows: Dict[str, List[float]] = copy.deepcopy(DEFAULT_WINDOWS)
+        self.bands: Dict[str, List[float]] = copy.deepcopy(DEFAULT_BANDS)
         
         # Sub-modules
         self.temporal = TemporalFeatures(self)

@@ -27,7 +27,7 @@ class SpectralFeatures:
         ----------
         bands : dict, optional
             Dictionary containing band names as keys and [fmin, fmax] as values.
-            Default is {'alpha': [8, 12], 'beta': [13, 30]}.
+            If None, uses the bands defined in the TEPExtractor config.
         channels : str, list of str, or None, default None
             The channel(s) to analyze. If None, all EEG channels are used.
             
@@ -37,7 +37,7 @@ class SpectralFeatures:
             DataFrame containing 'channel', 'band_name', and 'power' (V^2/Hz).
         """
         if bands is None:
-            bands = {'alpha': [8, 12], 'beta': [13, 30]}
+            bands = self._extractor.bands
             
         evoked = self._extractor.evoked
         
