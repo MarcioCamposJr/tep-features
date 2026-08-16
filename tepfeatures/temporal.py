@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import mne
-from typing import List, Union, Dict, Any, Optional
+from typing import List, Union, Dict, Any, Optional, Tuple
 
 class TemporalFeatures:
     """
@@ -20,7 +20,7 @@ class TemporalFeatures:
         # We use Any for type hint to avoid circular imports, but it expects a TEPExtractor.
         self._extractor = extractor
 
-    def get_peak(self, peak_name: str, channels: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
+    def get_peak(self, peak_name: Optional[Union[str, List[str]]] = None, channels: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
         """
         Extract the peak amplitude and latency for a specific window.
         
@@ -30,8 +30,9 @@ class TemporalFeatures:
         
         Parameters
         ----------
-        peak_name : str
+        peak_name : str, list of str, or None, default None
             The name of the peak to analyze (e.g., 'N15', 'P30'). Must be defined in the extractor.
+            If None, all defined peaks are analyzed.
         channels : str, list of str, or None, default None
             The channel(s) to analyze. If None, all EEG channels are used.
             
@@ -43,9 +44,15 @@ class TemporalFeatures:
         Raises
         ------
         KeyError
-            If the peak_name is not found in the extractor windows.
+            If a peak_name is not found in the extractor windows.
         """
-        window = self._extractor[peak_name]
+        if peak_name is None:
+            peak_names = list(self._extractor.windows.keys())
+        elif isinstance(peak_name, str):
+            peak_names = [peak_name]
+        else:
+            peak_names = peak_name
+
         evoked = self._extractor.evoked
         
         if channels is None:
@@ -54,35 +61,38 @@ class TemporalFeatures:
         else:
             ch_names = [channels] if isinstance(channels, str) else channels
             
-        # Crop data to the specific window
-        evoked_cropped = evoked.copy().crop(tmin=window[0], tmax=window[1])
-        data = evoked_cropped.get_data(picks=ch_names)
-        times = evoked_cropped.times
-        
         results = []
-        is_negative = peak_name.upper().startswith('N')
-        is_positive = peak_name.upper().startswith('P')
-        
-        for idx, ch_name in enumerate(ch_names):
-            ch_data = data[idx, :]
+        for p_name in peak_names:
+            window = self._extractor[p_name]
             
-            if is_negative:
-                peak_idx = np.argmin(ch_data)
-            elif is_positive:
-                peak_idx = np.argmax(ch_data)
-            else:
-                peak_idx = np.argmax(np.abs(ch_data))
+            # Crop data to the specific window
+            evoked_cropped = evoked.copy().crop(tmin=window[0], tmax=window[1])
+            data = evoked_cropped.get_data(picks=ch_names)
+            times = evoked_cropped.times
+            
+            is_negative = p_name.upper().startswith('N')
+            is_positive = p_name.upper().startswith('P')
+            
+            for idx, ch_name in enumerate(ch_names):
+                ch_data = data[idx, :]
                 
-            peak_amp = ch_data[peak_idx]
-            peak_lat = times[peak_idx]
-            
-            results.append({
-                'channel': ch_name,
-                'peak_name': peak_name,
-                'amplitude': peak_amp,
-                'latency': peak_lat
-            })
-            
+                if is_negative:
+                    peak_idx = np.argmin(ch_data)
+                elif is_positive:
+                    peak_idx = np.argmax(ch_data)
+                else:
+                    peak_idx = np.argmax(np.abs(ch_data))
+                    
+                peak_amp = ch_data[peak_idx]
+                peak_lat = times[peak_idx]
+                
+                results.append({
+                    'channel': ch_name,
+                    'peak_name': p_name,
+                    'amplitude': peak_amp,
+                    'latency': peak_lat
+                })
+                
         return pd.DataFrame(results)
 
     def get_morphology(self, peak1: str, peak2: str, channels: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
@@ -134,7 +144,7 @@ class TemporalFeatures:
             
         return pd.DataFrame(results)
 
-    def get_area(self, peak_name: str, channels: Optional[Union[str, List[str]]] = None, absolute: bool = False) -> pd.DataFrame:
+    def get_area(self, peak_name: Optional[Union[str, List[str]]] = None, channels: Optional[Union[str, List[str]]] = None, absolute: bool = False) -> pd.DataFrame:
         """
         Calculate the Area Under the Curve (AUC) for a specific temporal window.
         
@@ -142,8 +152,9 @@ class TemporalFeatures:
         
         Parameters
         ----------
-        peak_name : str
+        peak_name : str, list of str, or None, default None
             The name of the window/peak to analyze (e.g., 'N15', 'P30').
+            If None, all defined peaks are analyzed.
         channels : str, list of str, or None, default None
             The channel(s) to analyze. If None, all EEG channels are used.
         absolute : bool, default False
@@ -155,7 +166,13 @@ class TemporalFeatures:
         pd.DataFrame
             DataFrame containing 'channel', 'window_name', and 'auc' (V*s).
         """
-        window = self._extractor[peak_name]
+        if peak_name is None:
+            peak_names = list(self._extractor.windows.keys())
+        elif isinstance(peak_name, str):
+            peak_names = [peak_name]
+        else:
+            peak_names = peak_name
+
         evoked = self._extractor.evoked
         
         if channels is None:
@@ -164,24 +181,122 @@ class TemporalFeatures:
         else:
             ch_names = [channels] if isinstance(channels, str) else channels
             
-        evoked_cropped = evoked.copy().crop(tmin=window[0], tmax=window[1])
-        data = evoked_cropped.get_data(picks=ch_names)
-        times = evoked_cropped.times
+        results = []
+        for p_name in peak_names:
+            window = self._extractor[p_name]
+            evoked_cropped = evoked.copy().crop(tmin=window[0], tmax=window[1])
+            data = evoked_cropped.get_data(picks=ch_names)
+            times = evoked_cropped.times
+            
+            if absolute:
+                data = np.abs(data)
+                
+            for idx, ch_name in enumerate(ch_names):
+                ch_data = data[idx, :]
+                
+                # Trapezoidal integration
+                auc = np.trapezoid(y=ch_data, x=times)
+                
+                results.append({
+                    'channel': ch_name,
+                    'window_name': p_name,
+                    'auc': auc
+                })
+            
+        return pd.DataFrame(results)
+
+    def get_snr(self, peak_name: Optional[Union[str, List[str]]], baseline: Tuple[float, float], data: Optional[Union[mne.Evoked, Any]] = None, channels: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
+        """
+        Calculate the Signal-to-Noise Ratio (SNR) for each channel.
         
-        if absolute:
-            data = np.abs(data)
+        The SNR is calculated as the absolute peak amplitude within the window 
+        divided by the standard deviation of the baseline period.
+        
+        Parameters
+        ----------
+        peak_name : str, list of str, or None
+            The name of the window/peak to analyze (e.g., 'N15', 'P30').
+            If None, all defined peaks are analyzed.
+        baseline : tuple of float
+            The baseline time window (start, end) in seconds (e.g., (-0.5, -0.01)).
+        data : mne.Evoked, mne.Epochs, or None, default None
+            The data to use for SNR calculation. If None, uses the Evoked 
+            object stored in the extractor. If Epochs are provided, the baseline 
+            standard deviation is calculated across all epochs and times, and the 
+            peak is extracted from the averaged epochs.
+        channels : str, list of str, or None, default None
+            The channel(s) to analyze. If None, all EEG channels are used.
+            
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing 'channel', 'peak_name', 'peak_amplitude', 
+            'baseline_std', and 'snr'.
+        """
+        if peak_name is None:
+            peak_names = list(self._extractor.windows.keys())
+        elif isinstance(peak_name, str):
+            peak_names = [peak_name]
+        else:
+            peak_names = peak_name
+
+        if data is None:
+            data = self._extractor.evoked
+            
+        if channels is None:
+            picks = mne.pick_types(data.info, eeg=True)
+            ch_names = [data.ch_names[i] for i in picks]
+        else:
+            ch_names = [channels] if isinstance(channels, str) else channels
+            
+        # Extract baseline and calculate standard deviation
+        data_baseline = data.copy().crop(tmin=baseline[0], tmax=baseline[1])
+        baseline_arrays = data_baseline.get_data(picks=ch_names)
+        
+        if baseline_arrays.ndim == 3:
+            # Epochs provided: baseline_arrays shape is (epochs, channels, times)
+            baseline_std = np.std(baseline_arrays, axis=(0, 2))
+            evoked_for_peak = data.copy().average()
+        else:
+            # Evoked provided: baseline_arrays shape is (channels, times)
+            baseline_std = np.std(baseline_arrays, axis=1)
+            evoked_for_peak = data
             
         results = []
-        for idx, ch_name in enumerate(ch_names):
-            ch_data = data[idx, :]
+        for p_name in peak_names:
+            window = self._extractor[p_name]
             
-            # Trapezoidal integration
-            auc = np.trapezoid(y=ch_data, x=times)
+            # Get peak amplitudes
+            evoked_cropped = evoked_for_peak.copy().crop(tmin=window[0], tmax=window[1])
+            peak_arrays = evoked_cropped.get_data(picks=ch_names)
             
-            results.append({
-                'channel': ch_name,
-                'window_name': peak_name,
-                'auc': auc
-            })
+            is_negative = p_name.upper().startswith('N')
+            is_positive = p_name.upper().startswith('P')
+            
+            for idx, ch_name in enumerate(ch_names):
+                ch_data = peak_arrays[idx, :]
+                
+                if is_negative:
+                    peak_idx = np.argmin(ch_data)
+                elif is_positive:
+                    peak_idx = np.argmax(ch_data)
+                else:
+                    peak_idx = np.argmax(np.abs(ch_data))
+                    
+                peak_amp = ch_data[peak_idx]
+                b_std = baseline_std[idx]
+                
+                if b_std == 0:
+                    snr = np.nan
+                else:
+                    snr = np.abs(peak_amp) / b_std
+                    
+                results.append({
+                    'channel': ch_name,
+                    'peak_name': p_name,
+                    'peak_amplitude': peak_amp,
+                    'baseline_std': b_std,
+                    'snr': snr
+                })
             
         return pd.DataFrame(results)

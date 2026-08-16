@@ -7,10 +7,10 @@ Configuration parameters and default values for TEP features extraction.
 DEFAULT_WINDOWS = {
     "N15": [0.010, 0.020],
     "P30": [0.025, 0.035],
-    "N45": [0.040, 0.055],
-    "P60": [0.050, 0.070],
-    "N100": [0.100, 0.160],
-    "P200": [0.180, 0.280],
+    "N45": [0.035, 0.055],
+    "P60": [0.055, 0.075],
+    "N100": [0.090, 0.125],
+    "P200": [0.150, 0.220]
 }
 
 # Default frequency bands (in Hz) for spectral analysis
