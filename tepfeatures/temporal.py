@@ -144,7 +144,7 @@ class TemporalFeatures:
             
         return pd.DataFrame(results)
 
-    def get_area(self, peak_name: Optional[Union[str, List[str]]] = None, channels: Optional[Union[str, List[str]]] = None, absolute: bool = False) -> pd.DataFrame:
+    def get_area(self, peak_name: Optional[Union[str, List[str]]] = None, channels: Optional[Union[str, List[str]]] = None, absolute: bool = True) -> pd.DataFrame:
         """
         Calculate the Area Under the Curve (AUC) for a specific temporal window.
         
