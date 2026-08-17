@@ -84,35 +84,47 @@ class SpatialFeatures:
         lmfp = self._calculate_field_power(data, method='rms')
         return evoked.times, lmfp
 
-    def get_gfp_peak(self, peak_name: str) -> pd.DataFrame:
+    def get_gfp_peak(self, peak_name: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
         """
         Extract the peak amplitude and latency of the GFP within a specific window.
         
         Parameters
         ----------
-        peak_name : str
+        peak_name : str, list of str, or None, default None
             The name of the peak to analyze (e.g., 'N15', 'P30').
+            If None, all defined peaks are analyzed.
             
         Returns
         -------
         pd.DataFrame
             DataFrame containing 'peak_name', 'gfp_amplitude', and 'gfp_latency'.
         """
-        window = self._extractor[peak_name]
-        evoked_cropped = self._extractor.evoked.copy().crop(tmin=window[0], tmax=window[1])
-        picks = mne.pick_types(evoked_cropped.info, eeg=True)
-        data = evoked_cropped.get_data(picks=picks)
-        
-        gfp = self._calculate_field_power(data, method='std')
-        times = evoked_cropped.times
-        
-        peak_idx = np.argmax(gfp)
-        
-        return pd.DataFrame([{
-            'peak_name': peak_name,
-            'gfp_amplitude': gfp[peak_idx],
-            'gfp_latency': times[peak_idx]
-        }])
+        if peak_name is None:
+            peak_names = list(self._extractor.windows.keys())
+        elif isinstance(peak_name, str):
+            peak_names = [peak_name]
+        else:
+            peak_names = peak_name
+
+        results = []
+        for p_name in peak_names:
+            window = self._extractor[p_name]
+            evoked_cropped = self._extractor.evoked.copy().crop(tmin=window[0], tmax=window[1])
+            picks = mne.pick_types(evoked_cropped.info, eeg=True)
+            data = evoked_cropped.get_data(picks=picks)
+            
+            gfp = self._calculate_field_power(data, method='std')
+            times = evoked_cropped.times
+            
+            peak_idx = np.argmax(gfp)
+            
+            results.append({
+                'peak_name': p_name,
+                'gfp_amplitude': gfp[peak_idx],
+                'gfp_latency': times[peak_idx]
+            })
+            
+        return pd.DataFrame(results)
 
     def topographical_similarity(self, peak1: str, peak2: str) -> pd.DataFrame:
         """
